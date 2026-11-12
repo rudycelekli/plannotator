@@ -390,6 +390,23 @@ export const GIT_COLOR_FREE_ARGS: readonly string[] = Object.freeze([
 ]);
 
 /**
+ * Settings that are not about color but that every Git command Plannotator
+ * parses needs, whatever the user's config says.
+ *
+ * `core.quotePath=false` keeps a non-ASCII path readable. `log.showSignature`
+ * is on in the config of anyone who signs their commits, and with it `git log`
+ * and `git show` print the signature verification line to STDOUT ahead of the
+ * commit — ahead of a `--pretty=format:` line too. That line rode into the
+ * commit's own fields: the `commit:<sha>` review label read `Commit Good
+ * "git" signature for … — <subject>`, and the commit sidecar's sha came back
+ * with the verification line glued in front of it.
+ */
+const GIT_PARSE_SAFE_ARGS: readonly string[] = Object.freeze([
+  "-c", "core.quotePath=false",
+  "-c", "log.showSignature=false",
+]);
+
+/**
  * The same color-off settings as `GIT_CONFIG_*` environment variables, for
  * processes Plannotator spawns that run git themselves (review, tour and
  * guide agent jobs). Inherited `GIT_CONFIG_*` entries are kept. Git 2.31+
@@ -420,7 +437,7 @@ export function prepareGitCommand(
   const interaction = options?.interaction ?? "allow";
   if (interaction === "allow") {
     return {
-      args: [...GIT_COLOR_FREE_ARGS, "-c", "core.quotePath=false", ...args],
+      args: [...GIT_COLOR_FREE_ARGS, ...GIT_PARSE_SAFE_ARGS, ...args],
       ...(configEnv ? { env: { ...environment, ...configEnv } } : {}),
       isolateProcessGroup: false,
     };
@@ -435,8 +452,7 @@ export function prepareGitCommand(
   return {
     args: [
       ...GIT_COLOR_FREE_ARGS,
-      "-c",
-      "core.quotePath=false",
+      ...GIT_PARSE_SAFE_ARGS,
       "-c",
       "credential.interactive=false",
       ...args,

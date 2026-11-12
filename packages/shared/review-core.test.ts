@@ -370,6 +370,30 @@ describe("review-core", () => {
     });
   });
 
+  // Skipped where ssh-keygen is missing: there is nothing to sign a commit with.
+  const testIfSshKeygen = spawnSync("ssh-keygen", ["-?"], { encoding: "utf-8" }).error ? test.skip : test;
+  testIfSshKeygen("a commit diff label survives log.showSignature on a signed commit", async () => {
+    // Anyone who signs their commits has log.showSignature on, and with it git
+    // prints the verification line to stdout ahead of a --pretty=format: line.
+    const repoDir = initRepo();
+    const key = join(repoDir, "signing-key");
+    spawnSync("ssh-keygen", ["-t", "ed25519", "-N", "", "-C", "review-core", "-f", key], { encoding: "utf-8" });
+    writeFileSync(join(repoDir, "allowed-signers"), `review-core@example.com ${readFileSync(`${key}.pub`, "utf-8")}`, "utf-8");
+    git(repoDir, ["config", "gpg.format", "ssh"]);
+    git(repoDir, ["config", "user.signingkey", `${key}.pub`]);
+    git(repoDir, ["config", "gpg.ssh.allowedSignersFile", join(repoDir, "allowed-signers")]);
+    git(repoDir, ["config", "log.showSignature", "true"]);
+    writeFileSync(join(repoDir, "tracked.txt"), "signed\n", "utf-8");
+    git(repoDir, ["commit", "-S", "-am", "a signed subject"]);
+    const sha = git(repoDir, ["rev-parse", "HEAD"]);
+    // Guards the test itself: the repo really does poison a formatted log.
+    expect(git(repoDir, ["log", "-1", "--pretty=format:%h", sha])).toContain("signature");
+
+    const result = await runGitDiff(makeConfigForwardingRuntime(repoDir), `commit:${sha}`, "main");
+
+    expect(result.label).toBe(`Commit ${sha.slice(0, 7)} — a signed subject`);
+  });
+
   test("uncommitted diff includes tracked and untracked files", async () => {
     const repoDir = initRepo();
     const runtime = makeRuntime(repoDir);
