@@ -118,6 +118,10 @@ const REFERENCE_LINK_RE = new RegExp(
   'g',
 );
 
+// An ATX heading line, exactly as the block parser reads one
+// (`parseMarkdownToBlocks`, on the trimmed line).
+const ATX_HEADING_RE = /^#{1,6}(?:\s|$)/;
+
 // CommonMark label matching is case-insensitive and collapses internal runs of
 // whitespace.
 const normalizeRefLabel = (label: string): string =>
@@ -454,9 +458,10 @@ export const resolveReferenceLinks = (markdown: string): string => {
   // A definition cannot interrupt a paragraph (CommonMark 4.7): a line matching
   // the definition shape is only a definition when it can start a block, i.e.
   // the previous line is the document start, blank, a protected code/HTML
-  // line (each is its own block), or itself a definition. Otherwise the line
-  // is paragraph continuation text and must be left untouched, or a bare
-  // `[word]: token` under a sentence would be silently deleted.
+  // line (each is its own block), an ATX heading (a leaf block that closes on
+  // its own line, so it is never continued), or itself a definition. Otherwise
+  // the line is paragraph continuation text and must be left untouched, or a
+  // bare `[word]: token` under a sentence would be silently deleted.
   let canStartDefinition = true;
   for (let i = 0; i < lines.length; i++) {
     if (isProtected[i]) {
@@ -480,9 +485,12 @@ export const resolveReferenceLinks = (markdown: string): string => {
       }
       // A run of definitions stays eligible; canStartDefinition remains true.
     } else {
-      // Blank keeps a new block startable; any other non-definition line starts
-      // (or continues) a paragraph, so a following definition-shaped line is text.
-      canStartDefinition = blank;
+      // Blank keeps a new block startable, and so does an ATX heading: the
+      // block parser's own `/^(#{1,6})(?:\s|$)/` on the trimmed line ends it
+      // there, so the next line starts a block whether or not a blank
+      // separates them. Any other non-definition line starts (or continues) a
+      // paragraph, so a following definition-shaped line is text.
+      canStartDefinition = blank || ATX_HEADING_RE.test(lines[i].trim());
     }
   }
   if (defs.size === 0) return markdown;
