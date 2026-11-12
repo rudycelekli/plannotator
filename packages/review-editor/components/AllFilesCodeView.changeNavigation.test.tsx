@@ -355,4 +355,58 @@ describe.if(hasDom)('AllFilesCodeView change navigation (DOM, real Pierre rows)'
       textarea.remove();
     }
   });
+
+  /** The all-files surface with a staging host, scrolled once so the active
+   *  file is known (the single-letter keys all act on it). */
+  async function mountStaging(): Promise<string[]> {
+    const staged: string[] = [];
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root!.render(
+        <AllFilesCodeView
+          files={FILES}
+          diffStyle="unified"
+          annotations={[]}
+          selectedAnnotationId={null}
+          scrollTargetAnnotation={null}
+          pendingSelection={null}
+          isActive
+          canStageFiles
+          onStage={(path: string) => staged.push(path)}
+          onLineSelection={() => {}}
+          onAddAnnotationForFile={() => {}}
+          onEditAnnotation={() => {}}
+          onSelectAnnotation={() => {}}
+          onDeleteAnnotation={() => {}}
+        />,
+      );
+    });
+    for (let turn = 0; turn < 200 && countRows() < 4; turn += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      });
+    }
+    expect(countRows()).toBeGreaterThanOrEqual(4);
+    const view = host.querySelector('[data-standin-view]');
+    await act(async () => {
+      view?.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+    return staged;
+  }
+
+  // Caps Lock reports `A` with no Shift, and `N` has always taken both cases
+  // (`changeJumpDirection`). The single-letter keys beside it must too, or a
+  // reader with Caps Lock on loses stage / viewed / collapse outright.
+  test('A stages the active file with Caps Lock on, as a stands for both', async () => {
+    const staged = await mountStaging();
+    press('a');
+    expect(staged).toEqual(['a.ts']);
+    press('A');
+    expect(staged).toEqual(['a.ts', 'a.ts']);
+    // Shift+A is still not the key (the modifier guard above owns Shift).
+    press('A', { shiftKey: true });
+    expect(staged).toEqual(['a.ts', 'a.ts']);
+  });
 });

@@ -3710,10 +3710,13 @@ const ReviewApp: React.FC = () => {
       const filePath = files[activeFileIndex]?.path;
       if (!filePath) return;
 
-      if (e.key === 'v') {
+      // Whatever case the layout reports: Caps Lock turns `v` into `V` with
+      // no Shift, and the keys mean the same thing either way (as `N` does).
+      const key = e.key.toLowerCase();
+      if (key === 'v') {
         e.preventDefault();
         handleToggleViewed(filePath);
-      } else if (e.key === 'a' && isPathStageable(filePath)) {
+      } else if (key === 'a' && isPathStageable(filePath)) {
         e.preventDefault();
         stageFile(filePath);
       }
