@@ -14,7 +14,8 @@ import { PRODUCT_FEEDBACK_URL, productFeedbackUrl } from "../packages/core/produ
 
 const repoRoot = resolve(import.meta.dir, "..");
 const liveHost = new URL(PRODUCT_FEEDBACK_URL).host;
-const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".wrangler", ".claude", ".turbo"]);
+/** Not `build`: build/ and apps/guides-show/build/ are tracked source. */
+const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".wrangler", ".claude", ".turbo"]);
 
 /** Test files: *.test.*, *.spec.*, and everything under a tests/ or test/ folder. */
 function testFiles(dir: string, inTests = false): string[] {
@@ -33,12 +34,14 @@ describe("the live feedback Worker is out of reach of tests", () => {
     expect(productFeedbackUrl(process.env)).toBe("http://127.0.0.1:9/feedback");
   });
 
-  const files = () => [...testFiles(join(repoRoot, "apps")), ...testFiles(join(repoRoot, "packages")), ...testFiles(join(repoRoot, "tests"), true), ...testFiles(join(repoRoot, "scripts"))];
+  const files = () => [...testFiles(join(repoRoot, "apps")), ...testFiles(join(repoRoot, "packages")), ...testFiles(join(repoRoot, "tests"), true), ...testFiles(join(repoRoot, "scripts")), ...testFiles(join(repoRoot, "build"))];
 
   test("no test file names the live host", () => {
-    const all = files();
+    const all = files().map((file) => relative(repoRoot, file));
     expect(all.length).toBeGreaterThan(100);
-    const naming = all.filter((file) => readFileSync(file, "utf-8").includes(liveHost)).map((file) => relative(repoRoot, file));
+    expect(all).toContain("build/katex-woff2-only.test.ts");
+    expect(all).toContain("apps/guides-show/build/viewer-upload.test.ts");
+    const naming = all.filter((file) => readFileSync(join(repoRoot, file), "utf-8").includes(liveHost));
     expect(naming).toEqual([]);
   });
 

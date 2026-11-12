@@ -23,7 +23,8 @@ import { YAML } from "bun";
 import { DAILY_PING_URL } from "../packages/shared/daily-ping";
 
 const repoRoot = resolve(import.meta.dir, "..");
-const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".wrangler", ".claude", ".turbo"]);
+/** Not `build`: build/ and apps/guides-show/build/ are tracked source. */
+const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".wrangler", ".claude", ".turbo"]);
 const SELF = relative(repoRoot, import.meta.path);
 
 /** Test files: *.test.*, *.spec.*, and everything under a tests/ or test/ folder. */
@@ -37,7 +38,7 @@ function testFiles(dir: string, inTests = false): string[] {
   });
 }
 
-const files = () => [...testFiles(join(repoRoot, "apps")), ...testFiles(join(repoRoot, "packages")), ...testFiles(join(repoRoot, "tests"), true), ...testFiles(join(repoRoot, "scripts"))];
+const files = () => [...testFiles(join(repoRoot, "apps")), ...testFiles(join(repoRoot, "packages")), ...testFiles(join(repoRoot, "tests"), true), ...testFiles(join(repoRoot, "scripts")), ...testFiles(join(repoRoot, "build"))];
 
 /** A child with a release version and the bare environment some tests hand their spawns. */
 async function probe(defineRelease: boolean): Promise<{ off: string | null; endpoint: string | null }> {
@@ -81,6 +82,7 @@ describe("the live daily ping is out of reach of tests", () => {
   test("a test that spawns with a release version also turns the ping off or sandboxes it", () => {
     const all = files();
     expect(all.length).toBeGreaterThan(100);
+    expect(all.map((f) => relative(repoRoot, f))).toContain("build/katex-woff2-only.test.ts");
     const releaseSpawn = /__CLI_VERSION__=\\?"(\$\{|\d+\.\d+\.\d+")|PLANNOTATOR_E2E_RELEASE_BINARY/;
     const offenders = all
       .filter((f) => relative(repoRoot, f) !== SELF)

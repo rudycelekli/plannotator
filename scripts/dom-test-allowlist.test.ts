@@ -20,8 +20,9 @@ import { DOM_GATE_SELF, domListFiles, isDomGated, ownProcessDomStepFiles } from 
 
 const repoRoot = resolve(import.meta.dir, '..');
 /** Where test files live. `legacy/` is reference-only and is not run. */
-const SEARCH_ROOTS = ['packages', 'apps', 'tests', 'scripts'];
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'coverage']);
+const SEARCH_ROOTS = ['packages', 'apps', 'tests', 'scripts', 'build'];
+/** Not `build`: build/ and apps/guides-show/build/ are tracked source. */
+const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage']);
 
 function testFiles(dir: string, out: string[] = []): string[] {
   let entries: string[];
@@ -57,6 +58,9 @@ describe('DOM test allowlist', () => {
     // Sanity: a matcher that silently stopped matching would make this test
     // pass forever. The repo has well over a hundred DOM-gated files.
     expect(gated.length).toBeGreaterThan(50);
+    const all = SEARCH_ROOTS.flatMap((root) => testFiles(join(repoRoot, root)));
+    expect(all).toContain('build/katex-woff2-only.test.ts');
+    expect(all).toContain('apps/guides-show/build/viewer-upload.test.ts');
 
     const missing = gated.filter((file) => !listed.has(file)).sort();
     expect(missing).toEqual([]);

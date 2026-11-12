@@ -22,8 +22,8 @@ import { SENTINEL_UNDER_TEST_MARK, sentinelBrowserFindings } from "./helpers/no-
 
 const repoRoot = resolve(import.meta.dir, "..");
 
-/** Folders never scanned: dependencies, build output, git metadata and worktrees, the pre-monorepo reference code. */
-const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".claude", ".local", "legacy", "coverage", "playwright-report", "test-results"]);
+/** Folders never scanned: dependencies, build output, git metadata and worktrees, the pre-monorepo reference code. Not `build`: build/ and apps/guides-show/build/ are tracked source. */
+const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".claude", ".local", "legacy", "coverage", "playwright-report", "test-results"]);
 
 /**
  * A file a test run or a dev reads its environment from: a *.test / *.spec
@@ -62,7 +62,7 @@ describe("PLANNOTATOR_BROWSER in tests and scripts", () => {
 
   test("finds the files it guards", () => {
     // Sentinels: if the walk stops reaching these, the scan proves nothing.
-    for (const known of ["tests/helpers/inbox-world.ts", "tests/e2e/inbox-order.spec.ts", "tests/e2e/playwright.config.ts", "apps/hook/server/annotate-cli.test.ts", "scripts/dast/target.ts", "tests/manual/local/test-sessions.sh", ".github/workflows/test.yml", "package.json"]) {
+    for (const known of ["tests/helpers/inbox-world.ts", "tests/e2e/inbox-order.spec.ts", "tests/e2e/playwright.config.ts", "apps/hook/server/annotate-cli.test.ts", "scripts/dast/target.ts", "tests/manual/local/test-sessions.sh", ".github/workflows/test.yml", "package.json", "build/katex-woff2-only.test.ts", "apps/guides-show/build/viewer-upload.test.ts"]) {
       expect(files).toContain(known);
     }
   });
