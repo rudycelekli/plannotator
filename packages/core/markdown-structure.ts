@@ -22,7 +22,14 @@
  */
 export function splitFrontmatter(markdown: string): { raw: string | null; content: string; contentStartLine: number } {
   const trimmed = markdown.trimStart();
-  if (!trimmed.startsWith('---')) {
+  // The opening delimiter is a line of exactly three dashes. A longer run
+  // (`-----`) is a thematic break, not a frontmatter opener, and neither is a
+  // line that merely starts with three (`--- DRAFT ---`): reading one as an
+  // opener swallowed the document down to the next `---` line, so a file that
+  // began with a rule lost everything above that rule.
+  const openLineEnd = trimmed.indexOf('\n');
+  const openLine = openLineEnd === -1 ? trimmed : trimmed.slice(0, openLineEnd);
+  if (openLine.trimEnd() !== '---') {
     return { raw: null, content: markdown, contentStartLine: 1 };
   }
 

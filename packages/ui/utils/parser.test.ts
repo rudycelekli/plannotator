@@ -1729,6 +1729,28 @@ describe("extractFrontmatter — contentStartLine", () => {
     expect(contentStartLine).toBe(5);
   });
 
+  test("a leading thematic break is not a frontmatter opener", () => {
+    // Only a line of exactly three dashes opens frontmatter. A longer run is a
+    // thematic break, and reading it as an opener ate every line down to the
+    // next `---`: the heading and body below vanished from the document.
+    const md = "-----\n\n# Title\n\nbody\n\n---\n\nmore";
+    const { frontmatter, content, contentStartLine } = extractFrontmatter(md);
+    expect(frontmatter).toBeNull();
+    expect(content).toBe(md);
+    expect(contentStartLine).toBe(1);
+    const blocks = parseMarkdownToBlocks(md);
+    expect(blocks.find((b) => b.type === "heading")?.content).toBe("Title");
+    expect(blocks.some((b) => b.content === "body")).toBe(true);
+  });
+
+  test("a line that only starts with three dashes is not a frontmatter opener", () => {
+    const md = "--- DRAFT ---\n\n# Title\n\nbody\n\n---\n\nend";
+    const { frontmatter, content } = extractFrontmatter(md);
+    expect(frontmatter).toBeNull();
+    expect(content).toBe(md);
+    expect(parseMarkdownToBlocks(md).some((b) => b.content === "body")).toBe(true);
+  });
+
   test("unclosed frontmatter treated as no frontmatter", () => {
     const md = "---\ntitle: foo\n# Not closed";
     const { contentStartLine, content } = extractFrontmatter(md);
