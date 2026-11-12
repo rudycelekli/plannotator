@@ -370,6 +370,34 @@ describe("review-core", () => {
     });
   });
 
+  test("unstaged diff shows a conflicted file while a merge is in progress", async () => {
+    // An unmerged path has no single index side, so git answers for it with a
+    // combined (`diff --cc`) chunk that parseDiffToFiles does not read.
+    const repoDir = initRepo();
+    const runtime = makeRuntime(repoDir);
+
+    writeFileSync(join(repoDir, "other.txt"), "plain\n", "utf-8");
+    git(repoDir, ["add", "other.txt"]);
+    git(repoDir, ["commit", "-m", "other"]);
+    git(repoDir, ["checkout", "-b", "side"]);
+    writeFileSync(join(repoDir, "tracked.txt"), "side\n", "utf-8");
+    git(repoDir, ["commit", "-am", "side"]);
+    git(repoDir, ["checkout", "main"]);
+    writeFileSync(join(repoDir, "tracked.txt"), "main\n", "utf-8");
+    git(repoDir, ["commit", "-am", "main"]);
+    spawnSync("git", ["merge", "side"], { cwd: repoDir, encoding: "utf-8" });
+    expect(git(repoDir, ["diff", "--name-only", "--diff-filter=U"])).toBe("tracked.txt");
+    writeFileSync(join(repoDir, "other.txt"), "plain edited\n", "utf-8");
+
+    const result = await runGitDiff(runtime, "unstaged", "main");
+
+    expect(listPatchFiles(result.patch).map((file) => file.path).sort()).toEqual([
+      "other.txt",
+      "tracked.txt",
+    ]);
+    expect(result.patch).not.toContain("diff --cc ");
+  });
+
   test("uncommitted diff includes tracked and untracked files", async () => {
     const repoDir = initRepo();
     const runtime = makeRuntime(repoDir);
