@@ -142,9 +142,26 @@ export function parseDiffGitHeader(header: string): DiffPathPair {
     }
   }
 
-  const match = header.match(/^diff --git a\/(.+) b\/(.+)$/);
-  if (!match) return {};
-  return { oldPath: match[1], newPath: match[2] };
+  if (!rest.startsWith("a/")) return {};
+  const body = rest.slice(2);
+
+  /*
+   * `a/<old> b/<new>` is ambiguous once a path itself contains " b/" (a
+   * directory whose name ends in " b"): a greedy split lands inside the path.
+   * A mode-only or binary change carries no `---`/`+++` and no rename lines,
+   * so this header is the only source of its paths, and git omits the rename
+   * lines exactly when both sides are the same path — so prefer the split that
+   * makes them equal, and keep the greedy one otherwise.
+   */
+  let greedy: DiffPathPair = {};
+  for (let at = body.indexOf(" b/"); at !== -1; at = body.indexOf(" b/", at + 1)) {
+    const oldPath = body.slice(0, at);
+    const newPath = body.slice(at + " b/".length);
+    if (!oldPath || !newPath) continue;
+    if (oldPath === newPath) return { oldPath, newPath };
+    greedy = { oldPath, newPath };
+  }
+  return greedy;
 }
 
 export function formatPatchPathToken(side: "a" | "b", filePath: string): string {

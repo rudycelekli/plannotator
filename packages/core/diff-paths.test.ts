@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   isContentlessBinaryPatch,
   parseDiffFilePathLines,
+  parseDiffGitHeader,
   parsePatchPathToken,
   unquoteGitPath,
 } from "./diff-paths";
@@ -120,5 +121,46 @@ describe("diff path parsing", () => {
 
   test("preserves dev null paths with tab metadata", () => {
     expect(parsePatchPathToken("/dev/null\t", "a")).toBe("/dev/null");
+  });
+});
+
+describe("parseDiffGitHeader", () => {
+  // `git diff` leaves a space unquoted, and emits no `---`/`+++` or rename
+  // lines for a mode-only or a binary change, so the header is the only source
+  // of those files' paths. A directory ending in " b" then puts a second
+  // " b/" in the header, where a greedy split lands inside the path.
+  test("splits an unquoted path that itself contains a b-prefix", () => {
+    expect(parseDiffGitHeader("diff --git a/dir b/mode.txt b/dir b/mode.txt")).toEqual({
+      oldPath: "dir b/mode.txt",
+      newPath: "dir b/mode.txt",
+    });
+    expect(parseDiffGitHeader("diff --git a/a b/c.png b/a b/c.png")).toEqual({
+      oldPath: "a b/c.png",
+      newPath: "a b/c.png",
+    });
+  });
+
+  test("keeps reading ordinary and quoted headers", () => {
+    expect(parseDiffGitHeader("diff --git a/src/calc.ts b/src/calc.ts")).toEqual({
+      oldPath: "src/calc.ts",
+      newPath: "src/calc.ts",
+    });
+    expect(parseDiffGitHeader("diff --git a/my file.txt b/my file.txt")).toEqual({
+      oldPath: "my file.txt",
+      newPath: "my file.txt",
+    });
+    expect(parseDiffGitHeader("diff --git a/src/Card.tsx b/src/Panel.tsx")).toEqual({
+      oldPath: "src/Card.tsx",
+      newPath: "src/Panel.tsx",
+    });
+    expect(parseDiffGitHeader('diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"')).toEqual({
+      oldPath: "café.txt",
+      newPath: "café.txt",
+    });
+  });
+
+  test("reads nothing from a line that is not a diff header", () => {
+    expect(parseDiffGitHeader("index 587be6b..742c16a 100644")).toEqual({});
+    expect(parseDiffGitHeader("diff --git nothing here")).toEqual({});
   });
 });
