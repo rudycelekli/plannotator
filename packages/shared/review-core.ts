@@ -1741,6 +1741,38 @@ export function isSameCwdCommitSwitch(
   return (next?.path ?? null) === (parseWorktreeDiffType(previousDiffType)?.path ?? null);
 }
 
+async function listUnmergedPaths(runtime: ReviewGitRuntime, cwd?: string): Promise<string[]> {
+  const result = await runtime.runGit(["diff", "--no-ext-diff", "--name-only", "--diff-filter=U", "-z"], { cwd });
+  return result.exitCode === 0 ? splitNulList(result.stdout) : [];
+}
+
+function dropCombinedPatchChunks(patch: string): string {
+  const starts = [...patch.matchAll(/^diff --(git|cc|combined) /gm)];
+  return starts
+    .map((start, index) =>
+      start[1] === "git" ? patch.slice(start.index ?? 0, starts[index + 1]?.index ?? patch.length) : "",
+    )
+    .join("");
+}
+
+async function runUnstagedTrackedDiff(
+  runtime: ReviewGitRuntime,
+  args: string[],
+  cwd?: string,
+  fileIdentities?: Record<string, string>,
+): Promise<string> {
+  const patch = await runBoundedTrackedDiff(runtime, args, cwd, fileIdentities);
+  const unmerged = await listUnmergedPaths(runtime, cwd);
+  if (unmerged.length === 0) return patch;
+  const fromHead = await runBoundedTrackedDiff(
+    runtime,
+    [...args, "--end-of-options", "HEAD", "--", ...unmerged],
+    cwd,
+    fileIdentities,
+  );
+  return dropCombinedPatchChunks(patch) + fromHead;
+}
+
 export async function runGitDiff(
   runtime: ReviewGitRuntime,
   diffType: DiffType,
@@ -1888,7 +1920,7 @@ export async function runGitDiff(
         ];
         const untracked = await getUntrackedFileDiffs(runtime, "a/", "b/", cwd, options, "best-effort", false, fileIdentities);
         patch = removeTrackedDeletions(
-          await runBoundedTrackedDiff(runtime, trackedDiffArgs, cwd, fileIdentities),
+          await runUnstagedTrackedDiff(runtime, trackedDiffArgs, cwd, fileIdentities),
           new Set(untracked.paths),
         ) + untracked.diff;
         label = "Unstaged changes";
