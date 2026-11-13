@@ -6,7 +6,7 @@
  */
 
 function validateFilePath(filePath: string): void {
-  if (filePath.includes("..") || filePath.startsWith("/")) {
+  if (filePath.split(/[\\/]/).includes("..") || filePath.startsWith("/")) {
     throw new Error("Invalid file path");
   }
 }

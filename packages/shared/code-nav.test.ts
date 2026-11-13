@@ -467,6 +467,14 @@ describe("validateCodeNavRequest", () => {
 
   test("rejects directory traversal", () => {
     expect(validateCodeNavRequest({ ...valid, filePath: "../etc/passwd" })).toBe("Invalid filePath");
+    expect(validateCodeNavRequest({ ...valid, filePath: "src/../../etc/passwd" })).toBe("Invalid filePath");
+    expect(validateCodeNavRequest({ ...valid, filePath: "src\\..\\..\\secret" })).toBe("Invalid filePath");
+  });
+
+  test("accepts a file name or folder that only contains two dots", () => {
+    for (const filePath of ["app/[...slug]/page.tsx", "src/routes/[...rest]/+page.svelte", "pages/blog/[...slug].vue", "notes..md"]) {
+      expect(validateCodeNavRequest({ ...valid, filePath })).toBeNull();
+    }
   });
 
   test("rejects absolute path", () => {
