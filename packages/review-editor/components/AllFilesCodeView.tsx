@@ -3213,9 +3213,10 @@ export const AllFilesCodeView: React.FC<AllFilesCodeViewProps> = ({
         ? filePathToItemId.get(visibleFileRef.current) ?? null
         : null;
       const currentPath = currentId ? itemIdToFilePath.get(currentId) ?? null : null;
+      const key = e.key.toLowerCase();
 
       // x — collapse/expand the current file.
-      if (e.key === 'x' && currentId) {
+      if (key === 'x' && currentId) {
         e.preventDefault();
         toggleItemCollapsed(currentId);
         return;
@@ -3225,7 +3226,7 @@ export const AllFilesCodeView: React.FC<AllFilesCodeViewProps> = ({
       // history stack; we approximate with the nearest collapsed item AT or
       // BEFORE the current position in visual order (the file you most likely
       // just collapsed), falling back to the nearest one after it.
-      if (e.key === 'z') {
+      if (key === 'z') {
         const collapsedIds = orderedItemIds.filter((id) => isItemCollapsed(id));
         if (collapsedIds.length === 0) return;
         e.preventDefault();
@@ -3243,7 +3244,7 @@ export const AllFilesCodeView: React.FC<AllFilesCodeViewProps> = ({
       // anchor element comes from the eager fileCommentButtonRef registration;
       // isConnected guards against an element whose header was recycled out of
       // the rendered window between registration and keypress.
-      if (e.key === 'c' && currentPath && onAddFileCommentForFile) {
+      if (key === 'c' && currentPath && onAddFileCommentForFile) {
         e.preventDefault();
         const btn = fileCommentButtonRefs.current.get(currentPath);
         if (btn?.isConnected) setFileCommentAnchor({ el: btn, filePath: currentPath });
@@ -3251,7 +3252,7 @@ export const AllFilesCodeView: React.FC<AllFilesCodeViewProps> = ({
       }
 
       // v — toggle viewed (and collapse on mark-viewed) for the current file.
-      if (e.key === 'v' && currentPath && currentId) {
+      if (key === 'v' && currentPath && currentId) {
         e.preventDefault();
         handleToggleViewedAndCollapse(currentPath, currentId);
         return;
@@ -3259,7 +3260,7 @@ export const AllFilesCodeView: React.FC<AllFilesCodeViewProps> = ({
 
       // a — stage/unstage the current file (per-file gate: never a committed
       // file in since-base mode).
-      if (e.key === 'a' && currentPath && (canStagePath ? canStagePath(currentPath) : canStageFiles)) {
+      if (key === 'a' && currentPath && (canStagePath ? canStagePath(currentPath) : canStageFiles)) {
         e.preventDefault();
         onStage?.(currentPath);
         return;
