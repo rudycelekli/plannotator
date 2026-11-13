@@ -139,6 +139,15 @@ describe("resolveReferenceLinks (#923)", () => {
     );
   });
 
+  test("collects a definition on the line after a heading", () => {
+    expect(resolveReferenceLinks("## References\n[spec]: https://e.com/spec\n\nSee the [spec].")).toBe(
+      "## References\n\n\nSee the [spec](https://e.com/spec).",
+    );
+    expect(resolveReferenceLinks("# Links\n[a]: https://one.com\n[b]: https://two.com\n\n[x][a] [y][b]")).toBe(
+      "# Links\n\n\n\n[x](https://one.com) [y](https://two.com)",
+    );
+  });
+
   test("does not clobber a checked task-list item when an [x] definition exists", () => {
     // The checkbox guard means the task-list `[x]` never resolves as a
     // reference, so the "x" definition is never consumed and stays visible

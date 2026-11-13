@@ -118,6 +118,8 @@ const REFERENCE_LINK_RE = new RegExp(
   'g',
 );
 
+const ATX_HEADING_RE = /^#{1,6}(?:\s|$)/;
+
 // CommonMark label matching is case-insensitive and collapses internal runs of
 // whitespace.
 const normalizeRefLabel = (label: string): string =>
@@ -454,9 +456,9 @@ export const resolveReferenceLinks = (markdown: string): string => {
   // A definition cannot interrupt a paragraph (CommonMark 4.7): a line matching
   // the definition shape is only a definition when it can start a block, i.e.
   // the previous line is the document start, blank, a protected code/HTML
-  // line (each is its own block), or itself a definition. Otherwise the line
-  // is paragraph continuation text and must be left untouched, or a bare
-  // `[word]: token` under a sentence would be silently deleted.
+  // line (each is its own block), an ATX heading, or itself a definition. Otherwise
+  // the line is paragraph continuation text and must be left untouched, or a
+  // bare `[word]: token` under a sentence would be silently deleted.
   let canStartDefinition = true;
   for (let i = 0; i < lines.length; i++) {
     if (isProtected[i]) {
@@ -480,9 +482,9 @@ export const resolveReferenceLinks = (markdown: string): string => {
       }
       // A run of definitions stays eligible; canStartDefinition remains true.
     } else {
-      // Blank keeps a new block startable; any other non-definition line starts
+      // Blank or an ATX heading keeps a new block startable; any other line starts
       // (or continues) a paragraph, so a following definition-shaped line is text.
-      canStartDefinition = blank;
+      canStartDefinition = blank || ATX_HEADING_RE.test(lines[i].trim());
     }
   }
   if (defs.size === 0) return markdown;
