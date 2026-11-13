@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { configureT3Hook, hasPlanHookOverlap } from "./install-hook";
@@ -53,6 +53,25 @@ test("reinstall replaces the SDK-only gate earlier builds wrote, so T3's own ent
   writeFileSync(file, JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: old }] }] } }));
   expect(configureT3Hook(file, executable, dataDir, false)).toBe(true);
   expect(JSON.parse(readFileSync(file, "utf8")).hooks?.PreToolUse ?? []).toEqual([]);
+});
+
+test("a settings.json symlinked from a dotfiles folder is edited through the link, which stays a link", () => {
+  const { file, executable, dataDir } = fixture();
+  const dotfiles = join(file, "..", "..", "dotfiles");
+  mkdirSync(dotfiles);
+  const real = join(dotfiles, "claude-settings.json");
+  writeFileSync(real, JSON.stringify({ theme: "dark" }), { mode: 0o644 });
+  symlinkSync(real, file);
+  expect(configureT3Hook(file, executable, dataDir, true)).toBe(true);
+  expect(lstatSync(file).isSymbolicLink()).toBe(true);
+  const settings = JSON.parse(readFileSync(real, "utf8"));
+  expect(settings.theme).toBe("dark");
+  expect(parseT3HookCommand(settings.hooks.PreToolUse[0].hooks[0].command)).toEqual({ executable });
+  expect(statSync(real).mode & 0o777).toBe(0o644);
+  expect(configureT3Hook(file, executable, dataDir, false)).toBe(true);
+  expect(lstatSync(file).isSymbolicLink()).toBe(true);
+  expect(JSON.parse(readFileSync(real, "utf8"))).toEqual({ theme: "dark" });
+  expect(readdirSync(dotfiles)).toEqual(["claude-settings.json"]);
 });
 
 test("remove without an installed hook writes nothing and malformed settings stay intact", () => {

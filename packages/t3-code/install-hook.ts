@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseT3HookCommand, T3_SETTINGS_BACKUP_SUFFIX, t3HookCommand } from "@plannotator/shared/t3-hook-command";
 
@@ -7,14 +7,27 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
-function readSettings(file: string): { settings: Record<string, unknown>; original?: string; mode: number } {
-  if (!existsSync(file)) return { settings: {}, mode: 0o600 };
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Claude settings must be a regular JSON file: ${file}`);
-  const original = readFileSync(file, "utf8");
+function settingsTarget(file: string): string {
+  try {
+    return realpathSync(file);
+  } catch {
+    try {
+      return lstatSync(file).isSymbolicLink() ? resolve(dirname(file), readlinkSync(file)) : file;
+    } catch {
+      return file;
+    }
+  }
+}
+
+function readSettings(file: string): { settings: Record<string, unknown>; original?: string; mode: number; target: string } {
+  const target = settingsTarget(file);
+  if (!existsSync(target)) return { settings: {}, mode: 0o600, target };
+  const stat = statSync(target);
+  if (!stat.isFile()) throw new Error(`Claude settings must be a regular JSON file: ${file}`);
+  const original = readFileSync(target, "utf8");
   const settings = record(JSON.parse(original) as unknown);
   if (!settings) throw new Error(`Claude settings must contain a JSON object: ${file}`);
-  return { settings, original, mode: stat.mode & 0o777 };
+  return { settings, original, mode: stat.mode & 0o777, target };
 }
 
 function ownedHook(value: unknown): boolean {
@@ -23,7 +36,7 @@ function ownedHook(value: unknown): boolean {
 }
 
 export function configureT3Hook(file: string, executable: string, dataDir: string, enabled: boolean): boolean {
-  const { settings, original, mode } = readSettings(file);
+  const { settings, original, mode, target } = readSettings(file);
   const hooks = settings.hooks === undefined ? {} : record(settings.hooks);
   if (!hooks) throw new Error("Claude hooks must be an object; existing settings were preserved.");
   const entries = hooks.PreToolUse === undefined ? [] : hooks.PreToolUse;
@@ -48,17 +61,17 @@ export function configureT3Hook(file: string, executable: string, dataDir: strin
   else delete settings.hooks;
   const next = JSON.stringify(settings, null, 2) + "\n";
   if (next === original) return false;
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
   if (original !== undefined) {
     try { writeFileSync(file + T3_SETTINGS_BACKUP_SUFFIX, original, { flag: "wx", mode: 0o600 }); }
     catch (error) { if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error; }
   }
-  const temporary = file + "." + randomUUID() + ".tmp";
+  const temporary = target + "." + randomUUID() + ".tmp";
   try {
     writeFileSync(temporary, next, { flag: "wx", mode });
-    const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+    const current = existsSync(target) ? readFileSync(target, "utf8") : undefined;
     if (current !== original) throw new Error("Claude settings changed during installation; retry without overwriting them.");
-    renameSync(temporary, file);
+    renameSync(temporary, target);
   } finally { rmSync(temporary, { force: true }); }
   return true;
 }
