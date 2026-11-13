@@ -109,6 +109,7 @@ import {
 } from '../utils/fileBrowser';
 import { requestVimDocumentFocus } from '../hooks/useVimDocumentFocus';
 import { AnalysisLayerToggle } from './AnalysisLayerToggle';
+import { isImeCompositionKey } from '../utils/commentSubmitKey';
 
 type SettingsTab = 'general' | 'theme' | 'review' | 'display' | 'analysis' | 'saving' | 'labels' | 'vim' | 'shortcuts' | 'ai' | 'files' | 'obsidian' | 'bear' | 'octarine' | 'notion' | 'comments' | 'hooks' | 'experimental';
 
@@ -1744,7 +1745,7 @@ export const Settings: React.FC<SettingsProps> = ({ taterMode, onTaterModeChange
                             defaultValue={identity}
                             onBlur={(e) => handleIdentitySave(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
+                              if (e.key === 'Enter' && !isImeCompositionKey(e)) {
                                 handleIdentitySave((e.target as HTMLInputElement).value);
                                 (e.target as HTMLInputElement).blur();
                               }
@@ -2623,7 +2624,7 @@ export const Settings: React.FC<SettingsProps> = ({ taterMode, onTaterModeChange
                               value={newDirPath}
                               onChange={(e) => setNewDirPath(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') addDirectory();
+                                if (e.key === 'Enter' && !isImeCompositionKey(e)) addDirectory();
                               }}
                               placeholder="/path/to/directory"
                               className="flex-1 px-3 py-2 bg-muted rounded-lg text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"

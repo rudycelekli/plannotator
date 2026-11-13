@@ -380,3 +380,22 @@ describe('Settings → General → "Enter saves a comment"', () => {
     expect(document.querySelector('[data-enter-saves-comment-setting]')).toBeNull();
   });
 });
+
+describe('Settings → General → Your Identity', () => {
+  test.skipIf(skip)('the Enter that ends an IME composition does not save the name or leave the field', async () => {
+    const changes: string[] = [];
+    await render(
+      <Settings taterMode={false} onTaterModeChange={() => {}} mode="plan" externalOpen onIdentityChange={(_, name) => changes.push(name)} />,
+    );
+    const field = must<HTMLInputElement>('input[placeholder="Enter your name..."]');
+    field.focus();
+    await typeInto(field as unknown as HTMLTextAreaElement, '山田');
+    await pressKey(field, 'Enter', { isComposing: true });
+    await pressKey(field, 'Enter', { keyCode: 229 });
+    expect(changes).toEqual([]);
+    expect(document.activeElement).toBe(field);
+    await typeInto(field as unknown as HTMLTextAreaElement, '山田太郎');
+    await pressKey(field, 'Enter');
+    expect([...new Set(changes)]).toEqual(['山田太郎']);
+  });
+});

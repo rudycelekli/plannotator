@@ -243,6 +243,27 @@ describe.if(hasDom)('Settings → Labels: reorder and editable emoji (#1736)', (
     expect(saved[2]!.tip).toBe(labelsModule!.DEFAULT_QUICK_LABELS[1]!.tip!);
   });
 
+  test('the Enter that ends an IME composition does not save or close the tip editor', async () => {
+    await openLabelsTab();
+    const row = rowByText('Verify this');
+    await click(row.querySelector('[data-quick-label-tip-toggle]')!);
+    const tipInput = row.querySelector<HTMLInputElement>('[data-quick-label-tip]')!;
+    await typeInto(tipInput, 'コードを確認');
+    for (const init of [{ isComposing: true }, { keyCode: 229 }] as KeyboardEventInit[]) {
+      await act(async () => {
+        tipInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, ...init }));
+      });
+      expect(rowByText('Verify this').querySelector('[data-quick-label-tip]')).not.toBeNull();
+      expect(labelsModule!.getQuickLabels()[2]!.tip).toBe(labelsModule!.DEFAULT_QUICK_LABELS[2]!.tip!);
+    }
+    await typeInto(tipInput, 'コードを確認してください');
+    await act(async () => {
+      tipInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(rowByText('Verify this').querySelector('[data-quick-label-tip]')).toBeNull();
+    expect(labelsModule!.getQuickLabels()[2]!.tip).toBe('コードを確認してください');
+  });
+
   test('any number of labels: past twelve, + Add label still adds one, and it is saved', async () => {
     labelsModule!.saveQuickLabels(Array.from({ length: 14 }, (_, i) => ({ id: `l${i}`, emoji: '🧪', text: `Label ${i + 1}`, color: 'blue' as const })));
     await openLabelsTab();
