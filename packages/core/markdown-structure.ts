@@ -22,7 +22,9 @@
  */
 export function splitFrontmatter(markdown: string): { raw: string | null; content: string; contentStartLine: number } {
   const trimmed = markdown.trimStart();
-  if (!trimmed.startsWith('---')) {
+  const openLineEnd = trimmed.indexOf('\n');
+  const openLine = openLineEnd === -1 ? trimmed : trimmed.slice(0, openLineEnd);
+  if (openLine.trimEnd() !== '---') {
     return { raw: null, content: markdown, contentStartLine: 1 };
   }
 
