@@ -95,7 +95,7 @@ export async function getCommitDiffInfo(
   // split (same accepted pathological edge as the list parsers).
   const fmt = ["%H", "%h", "%an", "%ae", "%ct", "%s", "%b"].join(COMMIT_FIELD_SEP);
   const result = await runtime.runGit(
-    ["--no-optional-locks", "show", "-s", `--pretty=format:${fmt}`, "--end-of-options", sha],
+    ["--no-optional-locks", "show", "--no-show-signature", "-s", `--pretty=format:${fmt}`, "--end-of-options", sha],
     { cwd },
   );
   if (result.exitCode !== 0) return null;

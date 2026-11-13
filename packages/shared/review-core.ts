@@ -1776,7 +1776,7 @@ export async function runGitDiff(
     const commitRef = parseCommitDiffType(effectiveDiffType);
     if (commitRef) {
       const { sha } = commitRef;
-      const infoArgs = ["log", "-1", `--pretty=format:%h${COMMIT_FIELD_SEP}%s`, "--end-of-options", sha];
+      const infoArgs = ["log", "--no-show-signature", "-1", `--pretty=format:%h${COMMIT_FIELD_SEP}%s`, "--end-of-options", sha];
       const info = assertGitSuccess(await runtime.runGit(infoArgs, { cwd }), infoArgs);
       const sepIdx = info.stdout.indexOf(COMMIT_FIELD_SEP);
       const shortSha = sepIdx === -1 ? sha.slice(0, 7) : info.stdout.slice(0, sepIdx);

@@ -66,6 +66,19 @@ function initRepo(initialBranch = "main"): string {
   return repoDir;
 }
 
+function signCommitsAndShowSignatures(repoDir: string): void {
+  const key = join(repoDir, "signing-key");
+  git(repoDir, ["config", "gpg.format", "ssh"]);
+  spawnSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "signer", "-f", key], { encoding: "utf-8" });
+  writeFileSync(join(repoDir, "allowed-signers"), `review-core@example.com ${readFileSync(`${key}.pub`, "utf-8")}`, "utf-8");
+  git(repoDir, ["config", "user.signingkey", `${key}.pub`]);
+  git(repoDir, ["config", "gpg.ssh.allowedSignersFile", join(repoDir, "allowed-signers")]);
+  git(repoDir, ["config", "commit.gpgSign", "true"]);
+  git(repoDir, ["config", "log.showSignature", "true"]);
+}
+
+const testWithSshKeygen = spawnSync("ssh-keygen", ["-?"], { encoding: "utf-8" }).error ? test.skip : test;
+
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
@@ -214,5 +227,20 @@ describe("listCommitHistory", () => {
 
     const page = await listCommitHistory(runtime, "main", repoDir);
     expect(page).toEqual({ commits: [], hasMore: false, base: "main" });
+  });
+});
+
+describe("log.showSignature", () => {
+  testWithSshKeygen("a signed commit's verification line stays out of the commit sidecar", async () => {
+    const repoDir = initRepo();
+    signCommitsAndShowSignatures(repoDir);
+    git(repoDir, ["commit", "--allow-empty", "-m", "a signed subject"]);
+    const sha = git(repoDir, ["rev-parse", "HEAD"]);
+    expect(git(repoDir, ["log", "-1", "--pretty=format:%H"])).toContain("signature");
+    const runtime = makeRuntime(repoDir);
+
+    const info = await getCommitDiffInfo(runtime, sha);
+    expect(info?.sha).toBe(sha);
+    expect(info?.subject).toBe("a signed subject");
   });
 });

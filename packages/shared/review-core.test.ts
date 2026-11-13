@@ -1834,7 +1834,33 @@ describe("parseCommitDiffType", () => {
   });
 });
 
+function signCommitsAndShowSignatures(repoDir: string): void {
+  const key = join(repoDir, "signing-key");
+  git(repoDir, ["config", "gpg.format", "ssh"]);
+  spawnSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "signer", "-f", key], { encoding: "utf-8" });
+  writeFileSync(join(repoDir, "allowed-signers"), `review-core@example.com ${readFileSync(`${key}.pub`, "utf-8")}`, "utf-8");
+  git(repoDir, ["config", "user.signingkey", `${key}.pub`]);
+  git(repoDir, ["config", "gpg.ssh.allowedSignersFile", join(repoDir, "allowed-signers")]);
+  git(repoDir, ["config", "commit.gpgSign", "true"]);
+  git(repoDir, ["config", "log.showSignature", "true"]);
+}
+
+const testWithSshKeygen = spawnSync("ssh-keygen", ["-?"], { encoding: "utf-8" }).error ? test.skip : test;
+
 describe("commit diff mode", () => {
+  testWithSshKeygen("a signed commit's verification line stays out of the commit label", async () => {
+    const repoDir = initRepo();
+    signCommitsAndShowSignatures(repoDir);
+    writeFileSync(join(repoDir, "tracked.txt"), "signed\n", "utf-8");
+    git(repoDir, ["commit", "-am", "a signed subject"]);
+    const sha = git(repoDir, ["rev-parse", "HEAD"]);
+    expect(git(repoDir, ["log", "-1", "--pretty=format:%h"])).toContain("signature");
+    const runtime = makeRuntime(repoDir);
+
+    const result = await runGitDiff(runtime, `commit:${sha}`, "main");
+    expect(result.label).toBe(`Commit ${sha.slice(0, 7)} — a signed subject`);
+  });
+
   test("commit:<sha> diffs one commit against its first parent", async () => {
     const repoDir = initRepo();
     const runtime = makeRuntime(repoDir);
